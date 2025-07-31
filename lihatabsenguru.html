@@ -2,24 +2,40 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Data Kehadiran Guru Mata Pelajaran SMPN 10 BANAWA SELATAN</title>
+  <title>Data Kehadiran</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen p-6">
-  <div class="max-w-6xl mx-auto bg-white shadow-lg rounded-lg p-6">
-    <h1 class="text-3xl font-bold mb-4 text-indigo-600 flex items-center justify-center">
-      <i class="bi bi-people-fill mr-2"></i> Rekap Data Kehadiran Guru Mata Pelajaran
+  <div class="max-w-7xl mx-auto bg-white shadow-lg rounded-lg p-6">
+    <h1 class="text-3xl font-bold mb-6 text-indigo-600 text-center flex items-center justify-center">
+      <i class="bi bi-people-fill mr-2"></i> Data Kehadiran Peserta
     </h1>
-    
-    <div class="mb-4 text-right">
+
+    <!-- Filter Panel -->
+    <div class="grid sm:grid-cols-3 gap-4 mb-6">
+      <input type="text" id="nameFilter" placeholder="Cari nama..." class="px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <input type="date" id="dateFilter" class="px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <select id="statusFilter" class="px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        <option value="">Semua Status</option>
+        <option value="Hadir">Hadir</option>
+        <option value="Tidak Hadir">Tidak Hadir</option>
+      </select>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="flex flex-col sm:flex-row justify-end gap-4 mb-4">
+      <button onclick="downloadCSV()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+        <i class="bi bi-download mr-1"></i> Download CSV
+      </button>
       <button onclick="exportToPDF()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">
         <i class="bi bi-file-earmark-pdf mr-1"></i> Export PDF
       </button>
     </div>
 
+    <!-- Data Table -->
     <div class="overflow-x-auto">
       <table class="min-w-full border border-gray-300">
         <thead class="bg-indigo-100 text-indigo-700">
@@ -28,6 +44,9 @@
         <tbody id="table-body" class="bg-white divide-y divide-gray-200"></tbody>
       </table>
     </div>
+
+    <!-- Statistik -->
+    <div id="stats" class="mt-6 p-4 bg-gray-100 rounded text-sm text-gray-700"></div>
   </div>
 
   <script>
@@ -35,16 +54,17 @@
     const sheetName = 'kehadiran';
     const apiKey = 'AIzaSyBk6jIQ04ivWuWwTBPBVLtCRnneaTSf8V4';
     const apiURL = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${sheetName}?key=${apiKey}`;
+    let allRows = [];
+    let headers = [];
+    let filteredRows = [];
 
     fetch(apiURL)
       .then(res => res.json())
       .then(data => {
-        const headers = data.values[0];
-        const rows = data.values.slice(1);
+        headers = data.values[0];
+        allRows = data.values.slice(1);
 
         const thead = document.getElementById('table-header');
-        const tbody = document.getElementById('table-body');
-
         headers.forEach(header => {
           const th = document.createElement('th');
           th.textContent = header;
@@ -52,49 +72,77 @@
           thead.appendChild(th);
         });
 
-        rows.forEach(row => {
-          const tr = document.createElement('tr');
+        renderTable(allRows);
 
-          row.forEach((cell, i) => {
-            const td = document.createElement('td');
-            td.className = 'px-4 py-2 border';
-
-            if (headers[i].toLowerCase() === 'foto') {
-              let imageURL = cell;
-
-              // Konversi link Google Drive ke link langsung
-              const match = cell.match(/\/d\/(.+?)\//);
-              if (match) {
-                const fileId = match[1];
-                imageURL = `https://drive.google.com/uc?export=view&id=${fileId}`;
-              }
-
-              const btn = document.createElement('button');
-              btn.className = 'text-blue-600 hover:text-blue-800 flex items-center';
-              btn.innerHTML = '<i class="bi bi-eye"></i>';
-              btn.onclick = () => {
-                const win = window.open('', '_blank', 'width=300,height=400');
-                win.document.write(`<img src="${imageURL}" alt="Foto 3x4" style="width:225px;height:300px;">`);
-              };
-              td.appendChild(btn);
-            } else {
-              td.textContent = cell;
-            }
-
-            tr.appendChild(td);
-          });
-
-          tbody.appendChild(tr);
-        });
+        // Filter events
+        document.getElementById('nameFilter').addEventListener('input', applyFilters);
+        document.getElementById('dateFilter').addEventListener('input', applyFilters);
+        document.getElementById('statusFilter').addEventListener('change', applyFilters);
       })
-      .catch(error => {
-        console.error('Gagal memuat data:', error);
-        alert('Gagal memuat data. Pastikan API Key dan akses file Sheets sudah benar.');
+      .catch(err => {
+        console.error('Gagal memuat data:', err);
+        alert('Gagal memuat data. Pastikan API Key dan akses sheet sudah benar.');
       });
+
+    function applyFilters() {
+      const nameKeyword = document.getElementById('nameFilter').value.toLowerCase();
+      const dateKeyword = document.getElementById('dateFilter').value;
+      const statusKeyword = document.getElementById('statusFilter').value;
+
+      const filtered = allRows.filter(row => {
+        const nameMatch = row[0]?.toLowerCase().includes(nameKeyword);
+        const dateMatch = dateKeyword ? row.some(cell => cell === dateKeyword) : true;
+        const statusMatch = statusKeyword ? row.some(cell => cell === statusKeyword) : true;
+        return nameMatch && dateMatch && statusMatch;
+      });
+
+      renderTable(filtered);
+    }
+
+    function renderTable(rows) {
+      const tbody = document.getElementById('table-body');
+      tbody.innerHTML = '';
+      filteredRows = rows;
+
+      rows.forEach(row => {
+        const tr = document.createElement('tr');
+        row.forEach((cell, i) => {
+          const td = document.createElement('td');
+          td.className = 'px-4 py-2 border';
+
+          if (headers[i].toLowerCase() === 'foto') {
+            const btn = document.createElement('button');
+            btn.className = 'text-blue-600 hover:text-blue-800 flex items-center';
+            btn.innerHTML = '<i class="bi bi-eye"></i>';
+            btn.onclick = () => {
+              const win = window.open('', '_blank', 'width=300,height=400');
+              win.document.write(`<img src="${cell}" alt="Foto 3x4" style="width:225px;height:300px;">`);
+            };
+            td.appendChild(btn);
+          } else {
+            td.textContent = cell;
+          }
+
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+
+      // Update statistik
+      const total = rows.length;
+      const hadir = rows.filter(r => r.includes('Hadir')).length;
+      const tidakHadir = rows.filter(r => r.includes('Tidak Hadir')).length;
+
+      document.getElementById('stats').innerHTML = `
+        <strong>Total peserta:</strong> ${total} |
+        <strong>Hadir:</strong> ${hadir} |
+        <strong>Tidak Hadir:</strong> ${tidakHadir}
+      `;
+    }
 
     function exportToPDF() {
       const pdf = new jspdf.jsPDF();
-      html2canvas(document.querySelector("table"), { useCORS: true }).then(canvas => {
+      html2canvas(document.querySelector("table")).then(canvas => {
         const imgData = canvas.toDataURL("image/png");
         const pageWidth = pdf.internal.pageSize.getWidth();
         const ratio = canvas.width / canvas.height;
@@ -102,6 +150,18 @@
         pdf.addImage(imgData, "PNG", 10, 10, pageWidth - 20, imgHeight);
         pdf.save("data-kehadiran.pdf");
       });
+    }
+
+    function downloadCSV() {
+      const csvContent = "data:text/csv;charset=utf-8,"
+        + [headers.join(','), ...filteredRows.map(row => row.join(','))].join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "data-kehadiran.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   </script>
 </body>
