@@ -112,45 +112,32 @@
 
           if (headers[i].toLowerCase() === 'foto') {
             const btn = document.createElement('button');
-            btn.className = 'text-blue-600 hover:text-blue-800 flex items-center mx-auto';
+            btn.className = 'text-blue-600 hover:text-blue-800 flex items-center';
             btn.innerHTML = '<i class="bi bi-eye"></i>';
-
             btn.onclick = () => {
-              let imageUrl = cell;
-              const match = imageUrl.match(/\\/d\\/(.*?)\\//);
-              if (match) {
-                const fileId = match[1];
-                imageUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
-              }
               const win = window.open('', '_blank', 'width=300,height=400');
-              win.document.write(\`
-                <html>
-                  <head><title>Foto 3x4</title></head>
-                  <body style="margin:0;display:flex;align-items:center;justify-content:center;height:100%;">
-                    <img src="\${imageUrl}" alt="Foto 3x4" style="width:225px;height:300px;">
-                  </body>
-                </html>
-              \`);
+              win.document.write(`<img src="${cell}" alt="Foto 3x4" style="width:225px;height:300px;">`);
             };
             td.appendChild(btn);
           } else {
             td.textContent = cell;
           }
+
           tr.appendChild(td);
         });
         tbody.appendChild(tr);
       });
 
-      // Update Statistik
+      // Update statistik
       const total = rows.length;
       const hadir = rows.filter(r => r.includes('Hadir')).length;
       const tidakHadir = rows.filter(r => r.includes('Tidak Hadir')).length;
 
-      document.getElementById('stats').innerHTML = \`
-        <strong>Total peserta:</strong> \${total} |
-        <strong>Hadir:</strong> \${hadir} |
-        <strong>Tidak Hadir:</strong> \${tidakHadir}
-      \`;
+      document.getElementById('stats').innerHTML = `
+        <strong>Total peserta:</strong> ${total} |
+        <strong>Hadir:</strong> ${hadir} |
+        <strong>Tidak Hadir:</strong> ${tidakHadir}
+      `;
     }
 
     function exportToPDF() {
@@ -167,7 +154,7 @@
 
     function downloadCSV() {
       const csvContent = "data:text/csv;charset=utf-8,"
-        + [headers.join(','), ...filteredRows.map(row => row.join(','))].join('\\n');
+        + [headers.join(','), ...filteredRows.map(row => row.join(','))].join('\n');
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
