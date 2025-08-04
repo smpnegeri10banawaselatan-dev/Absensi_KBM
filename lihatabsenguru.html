@@ -111,22 +111,32 @@
           td.className = 'px-4 py-2 border';
 
           if (headers[i].toLowerCase() === 'foto') {
-            const btn = document.createElement('button');
-            btn.className = 'text-blue-600 hover:text-blue-800 flex items-center';
-            btn.innerHTML = '<i class="bi bi-eye"></i>';
-            btn.onclick = () => {
-              const win = window.open('', '_blank', 'width=300,height=400');
-              win.document.write(`<img src="${cell}" alt="Foto 3x4" style="width:225px;height:300px;">`);
-            };
-            td.appendChild(btn);
-          } else {
-            td.textContent = cell;
-          }
+    const btn = document.createElement('button');
+    btn.className = 'text-blue-600 hover:text-blue-800 flex items-center';
+    btn.innerHTML = '<i class="bi bi-eye"></i>';
 
-          tr.appendChild(td);
-        });
-        tbody.appendChild(tr);
-      });
+    btn.onclick = () => {
+        let imageUrl = cell;
+
+        // Cek apakah link adalah Google Drive view link
+        const match = imageUrl.match(/\/d\/(.*?)\//);
+        if (match) {
+            const fileId = match[1];
+            imageUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+        }
+
+        const win = window.open('', '_blank', 'width=300,height=400');
+        win.document.write(`
+            <html>
+                <head><title>Foto 3x4</title></head>
+                <body style="margin:0;display:flex;align-items:center;justify-content:center;height:100%;">
+                    <img src="${imageUrl}" alt="Foto 3x4" style="width:225px;height:300px;">
+                </body>
+            </html>
+        `);
+    };
+}
+
 
       // Update statistik
       const total = rows.length;
